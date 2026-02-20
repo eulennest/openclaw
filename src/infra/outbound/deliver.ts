@@ -459,7 +459,6 @@ async function deliverOutboundPayloadsCore(
       text: payload.text ?? "",
       mediaUrls: payload.mediaUrls ?? (payload.mediaUrl ? [payload.mediaUrl] : []),
       channelData: payload.channelData,
-      audioAsVoice: payload.audioAsVoice,
     };
     const emitMessageSent = (params: {
       success: boolean;
