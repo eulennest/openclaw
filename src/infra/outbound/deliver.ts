@@ -74,6 +74,12 @@ export type OutboundDeliveryResult = {
 
 type Chunker = (text: string, limit: number) => string[];
 
+type SendMediaOptions = {
+  replyToId?: string | null;
+  threadId?: string | number | null;
+  audioAsVoice?: boolean;
+};
+
 type ChannelHandler = {
   chunker: Chunker | null;
   chunkerMode?: "text" | "markdown";
@@ -95,10 +101,7 @@ type ChannelHandler = {
   sendMedia: (
     caption: string,
     mediaUrl: string,
-    overrides?: {
-      replyToId?: string | null;
-      threadId?: string | number | null;
-    },
+    options?: SendMediaOptions,
   ) => Promise<OutboundDeliveryResult>;
 };
 
@@ -114,6 +117,7 @@ type ChannelHandlerParams = {
   gifPlayback?: boolean;
   silent?: boolean;
   mediaLocalRoots?: readonly string[];
+  audioAsVoice?: boolean;
 };
 
 // Channel docking: outbound delivery delegates to plugin.outbound adapters.
@@ -164,11 +168,15 @@ function createPluginHandler(
         ...resolveCtx(overrides),
         text,
       }),
-    sendMedia: async (caption, mediaUrl, overrides) =>
+    sendMedia: async (caption, mediaUrl, options) =>
       sendMedia({
-        ...resolveCtx(overrides),
+        ...resolveCtx({
+          replyToId: options?.replyToId,
+          threadId: options?.threadId,
+        }),
         text: caption,
         mediaUrl,
+        audioAsVoice: options?.audioAsVoice,
       }),
   };
 }
@@ -187,6 +195,7 @@ function createChannelOutboundContextBase(
     deps: params.deps,
     silent: params.silent,
     mediaLocalRoots: params.mediaLocalRoots,
+    audioAsVoice: params.audioAsVoice,
   };
 }
 
@@ -450,6 +459,7 @@ async function deliverOutboundPayloadsCore(
       text: payload.text ?? "",
       mediaUrls: payload.mediaUrls ?? (payload.mediaUrl ? [payload.mediaUrl] : []),
       channelData: payload.channelData,
+      audioAsVoice: payload.audioAsVoice,
     };
     const emitMessageSent = (params: {
       success: boolean;
@@ -562,7 +572,10 @@ async function deliverOutboundPayloadsCore(
           results.push(delivery);
           lastMessageId = delivery.messageId;
         } else {
-          const delivery = await handler.sendMedia(caption, url, sendOverrides);
+          const delivery = await handler.sendMedia(caption, url, {
+            ...sendOverrides,
+            audioAsVoice: effectivePayload.audioAsVoice,
+          });
           results.push(delivery);
           lastMessageId = delivery.messageId;
         }
